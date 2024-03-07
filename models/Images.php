@@ -42,14 +42,16 @@ class Images extends \yii\db\ActiveRecord
         if (!$this->validate()) {
             return false;
         }
-
+        $filenames = [];
         if ($transaction = Yii::$app->db->beginTransaction()) {
             try {
                 foreach ($this->files as $file) {
                     $baseName = $this->transliterateFileName($file->baseName);
                     $newFileName = $this->generateUniqueFileName($baseName, $file->extension);
-
-                    $file->saveAs('uploads/' . $newFileName);
+                    $path = 'uploads/' . $newFileName;
+                    if($file->saveAs($path)) {
+                        $filenames[] = $path;
+                    }
                     $image = new self();
                     $image->filename = $newFileName;
                     $image->save();
@@ -58,6 +60,11 @@ class Images extends \yii\db\ActiveRecord
                 $transaction->commit();
                 return true;
             } catch (\Exception $e) {
+                foreach ($filenames as $filename) {
+                    if(file_exists($filename)) {
+                        unlink($filename);
+                    }
+                }
                 $transaction->rollBack();
                 return false;
             }
